@@ -41,21 +41,14 @@ translate_names <- function(x){
 tree$tip.label = paste(sapply(tree$tip.label,translate_names),paste('sp',1:length(tree$tip.label), sep = ''), sep = '_')
 
 tree_list = list()
-
-for (j in 1:1000){
-  tree_list[[j]] = tree
-for (i in sample(1:length(species),size = length(species),replace = F)){
-  tree_list[[j]] = add.species.to.genus(tree_list[[j]],species[i],where='random')
-}
-
-}
 class(tree_list) = "multiPhylo"
 
-write.tree(tree_list,'1000_trees.tre')
-
-####This section was written after adding species in the cluster. Trees have to be prunned from species not used in this paper
-tree_list = read.tree('1000_trees.tre')
-
-pruned_trees <- lapply(tree_list, function(x) {drop.tip(x,grep('_sp',x$tip.label))})
-class(pruned_trees) = "multiPhylo"
-write.tree(pruned_trees, 'final_1000_trees.tre')
+for (j in 1:100){
+  cat (paste('TREE',j))
+  tree_list[[j]] = tree #start with backbone tree
+  for (i in sample(1:length(species),size = length(species),replace = F)){ #add species randomly
+    tree_list[[j]] = add.species.to.genus(tree_list[[j]],species[i],where='random')
+  }
+  tree_list[[j]] = drop.tip(tree_list[[j]],grep('_sp',tree_list[[j]]$tip.label)) #remove species not in this study
+  write.tree(tree_list, 'final_100_trees.tre')
+}

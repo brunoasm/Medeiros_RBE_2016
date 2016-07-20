@@ -16,8 +16,8 @@ names(plot_colors) = c('Hg','Na','Na_F','Control')
 
 #1 - read data file and trees
 dados <- read.csv('../all_data.csv', row.names = 1)
-dados$trap <- factor(dados$trap, levels = c('Hg','Na','Na_F','Control'),ordered = T)
-trees <- read.tree('../beetle_tree/final_1000_trees.tre')
+dados$trap <- factor(dados$trap, levels = c('Control','Na_F','Na','Hg'),ordered = T)
+trees <- read.tree('../beetle_tree/final_100_trees.tre')
 
 ## model abundance attracted to lights
 
@@ -150,32 +150,57 @@ boxplot(Freq~Var1,data=as.data.frame.table(model_results[,'Estimate',]))
 boxplot(Freq~Var1,data=as.data.frame.table(model_results[,'t value',]))
 ##Variation is negligible, will do model with one of the trees
 
-pd_model = lmer(sqrt(diversity_data[[i+3]])~trap+(1|date), data = diversity_data)
+pd_model = lmer(diversity_data[[i+3]]~trap+(1|date), data = diversity_data)
 summary(pd_model)
 car::Anova(pd_model)
 plot(fitted(object=pd_model),residuals(pd_model))
 qqplot(fitted(pd_model),abundance$Freq)
 hist(residuals(pd_model))
 
-cor.test(~richness+pd_1, diversity_data)
-pdf('PD_S_correlation.pdf',width = 4,height = 3)
-par(omi = c(0,0,0,0), 
+##correlations between diversity and abundance
+div_abundance = merge(abundance,diversity_data)
+cor.test(~Freq+richness,div_abundance, method='spearman')
+cor.test(~Freq+pd_1,div_abundance, method='spearman')
+cor.test(~pd_1+richness,div_abundance, method='spearman')
+
+pdf('abundance_S_correlation.pdf',width = 6,height = 3)
+par(omi = c(0,0,0.3,0), 
     mai = c(0.7,0.7,0.3,0.25),
     cex.axis = 0.7,
     cex.lab = 0.8,
-    mgp = c(0,0.7,0))
-plot(diversity_data[c('richness','pd_1')],
-     col=plot_colors[as.numeric(diversity_data$trap)],
+    mgp = c(0,0.7,0),
+    mfrow = c(1,2))
+#plot abundance and richness
+plot(div_abundance[c('Freq','richness')],
+     col=plot_colors[as.numeric(div_abundance$trap)],
      axes=F,
      xlab='',
      ylab='')
 axis(1)
 axis(2)
 box()
-mtext(text = 'Species richness',side = 1,line = 2)
-mtext(text = 'Phylogenetic diversity',side = 2,line = 2)
-abline(0,lm(pd_1~0+richness,diversity_data)$coefficients)
+mtext(text = 'Abundance',side = 1,line = 2, cex = 0.8)
+mtext(text = 'Species richness',side = 2,line = 2, cex = 0.8)
+abline(0,lm(richness~0+Freq,div_abundance)$coefficients)
+
+#plot pd and richness
+plot(div_abundance[c('pd_1','richness')],
+     col=plot_colors[as.numeric(div_abundance$trap)],
+     axes=F,
+     xlab='',
+     ylab='')
+axis(1)
+axis(2)
+box()
+mtext(text = 'Phylogenetic diversity',side = 1,line = 2, cex = 0.8)
+mtext(text = 'Species richness',side = 2,line = 2, cex = 0.8)
+abline(0,lm(richness~0+pd_1,div_abundance)$coefficients)
+
+mtext(text = 'Abundance and diversity correlations',side = 3,line = -0.5, cex = 1.2,outer = T)
 dev.off()
+
+
+
 ###2 - rarefaction curves
 # make community matrix
 count_matrix <- xtabs(~trap+paste(higher_taxon,species,sep="_"),dados) #create community matrix
@@ -201,16 +226,16 @@ plot_lines = function(xmax,ymax){
        ylim = c(min(rarefy_results[,1,]-rarefy_results[,2,],na.rm = T),ymax),
        xlab = '',
        ylab = '')
-for (i in 1:4){ #plot lines
-  lines(as.numeric(dimnames(rarefy_results)[[3]]), #plot estimated S
-        rarefy_results[i,1,], col = plot_colors[i])
-  lines(as.numeric(dimnames(rarefy_results)[[3]]), #plot S + se
-        rarefy_results[i,1,] + rarefy_results[i,2,],
-        lty = 2, col = plot_colors[i])
-  lines(as.numeric(dimnames(rarefy_results)[[3]]), #plot S -se
-        rarefy_results[i,1,] - rarefy_results[i,2,],
-        lty = 2, col = plot_colors[i])
-}}
+  for (i in 1:4){ #plot lines
+    lines(as.numeric(dimnames(rarefy_results)[[3]]), #plot estimated S
+          rarefy_results[i,1,], col = plot_colors[i])
+    lines(as.numeric(dimnames(rarefy_results)[[3]]), #plot S + se
+          rarefy_results[i,1,] + 1.96*rarefy_results[i,2,],
+          lty = 2, col = plot_colors[i])
+    lines(as.numeric(dimnames(rarefy_results)[[3]]), #plot S -se
+          rarefy_results[i,1,] - 1.96*rarefy_results[i,2,],
+          lty = 2, col = plot_colors[i])
+  }}
 plot_lines(xmax = 200,
            ymax = 120)
 
@@ -220,14 +245,14 @@ mtext(side = 1, text = 'Number of individuals', line = 2, cex = 0.8)
 
 
 text(x = c(150,150,125,100),
-     y = c(87,60,42,23),
-     labels = levels(dados$trap),
+     y = c(95,55,42,23),
+     labels = levels(dados$trap)[4:1],
      col = plot_colors)
 subplot( 
   plot_lines(xmax = max(as.integer(dimnames(rarefy_results)[[3]])),
              ymax = max(rarefy_results[,1,]+rarefy_results[,2,], na.rm = T)),
-  x=c(10,75),
-  y=c(66,115))
+  x=c(20,80),
+  y=c(77,120))
 dev.off()
 
 #proportion of singletons
@@ -241,7 +266,7 @@ new.ses.mpd = function (samp, trees, null.model = c("taxa.labels", "richness",
                                     "trialswap"), abundance.weighted = FALSE, runs = 999, iterations = 1000) 
 {
   dis <- function(tr=trees){as.matrix(cophenetic(tr[[sample(1:length(tr),1)]]))} #modified part, this will sample a new tree in each replication round
-  mpd.obs <- apply(replicate(runs,mpd(count_matrix,dis(),abundance.weighted = abundance.weighted)),1,mean)
+  mpd.obs <- apply(sapply(trees,function(x){mpd(count_matrix,cophenetic(x),abundance.weighted = abundance.weighted)}),1,mean)
   null.model <- match.arg(null.model)
   mpd.rand <- switch(null.model, trialswap = t(replicate(runs,mpd(randomizeMatrix(samp, null.model = "trialswap", iterations), dis(), abundance.weighted))))
   mpd.rand.mean <- apply(X = mpd.rand, MARGIN = 2, FUN = mean, 
@@ -261,4 +286,40 @@ weighted = ses.mpd(count_matrix,cophenetic(trees[[1]]), null.model = 'trialswap'
 weighted2 = new.ses.mpd(count_matrix,trees,null.model = 'trialswap',abundance.weighted = T, runs=10000, iterations=100000)
 unweighted = ses.mpd(count_matrix,cophenetic(trees[[1]]), null.model = 'trialswap',abundance.weighted = F, runs=10000, iterations=100000)
 unweighted2 = new.ses.mpd(count_matrix,trees, null.model = 'trialswap',abundance.weighted = F, runs=10000, iterations=100000)
+
+#printing results
+write.csv(weighted2,'mpd_weighted.csv')
+write.csv(unweighted2,'mpd_unweighted.csv')
+
+#making table of family x trap
+specimens_trap = xtabs(~higher_taxon+trap,dados)
+species_trap = tapply(dados$species,
+                      dados[c('higher_taxon','trap')],
+                      function(x){length(unique(x))})
+species_trap[is.na(species_trap)] = 0
+
+formatted_fam_trap = array(paste(species_trap, " (",specimens_trap,")",sep=""),dim=dim(species_trap),dimnames=dimnames(species_trap))
+write.csv(x = formatted_fam_trap,
+            file = 'table_families_trap.csv')
+
+
+##how many of the specimens in each lamp are Scolytinae or Cryptophagidae
+species_trap = xtabs(~paste(higher_taxon,species)+trap,dados)
+crypto_and_scoly = species_trap[grepl('Scolytinae|Cryptophagidae',rownames(species_trap)),]
+#percent of individuals
+apply(crypto_and_scoly,2,sum)/apply(species_trap,2,sum)
+#percent of the species
+apply(crypto_and_scoly,2,function(x){sum(x>0)})/apply(species_trap,2,function(x){sum(x>0)})
+
+
+###how many of the species are exclusive to each lamp
+species_abundance = xtabs(~species+trap,dados)
+species_presence = species_abundance
+species_presence[species_abundance != 0] = T
+#the following show number of species exclusive to each trap
+apply(species_presence[apply(species_presence,1,sum)==1,],2,sum)
+#abundance of species exclusive to each trap
+species_abundance[apply(species_presence,1,sum)==1,]
+
+
 
